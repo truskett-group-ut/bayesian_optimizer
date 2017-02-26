@@ -7,8 +7,9 @@ from numpy import array
 
 class GaussianProcessRegressor_(BaseEstimator, ClassifierMixin):
     #standard init function
-    def __init__(self, nu = 1.5):
+    def __init__(self, nu = 1.5, white_noise=True):
         self.nu = nu
+        self.white_noise = white_noise
         return None
     #creates an explicit pipeline so that special features of the gp regressor can be accessed
     def fit(self, X, y, dy = None):
@@ -17,12 +18,15 @@ class GaussianProcessRegressor_(BaseEstimator, ClassifierMixin):
         self.standard_scaler_y_ = StandardScaler()
         #predictor
         dimensions = len(X[0])
-        kernel = (Matern(length_scale = [1.0 for axis in range(dimensions)], nu = self.nu) 
-                  + WhiteKernel(noise_level=1.0, noise_level_bounds=(1e-05, 100000.0)))
-        if dy is None:
-            self.gaussian_process_ = GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = 10)
+        if self.white_noise:
+            kernel = (Matern(length_scale = [1.0 for axis in range(dimensions)], nu = self.nu) 
+                      + WhiteKernel(noise_level=1.0, noise_level_bounds=(1e-05, 100000.0)))
         else:
-            self.gaussian_process_ = GaussianProcessRegressor(kernel = kernel, alpha = dy, n_restarts_optimizer = 10)
+            kernel = (Matern(length_scale = [1.0 for axis in range(dimensions)], nu = self.nu))
+        if dy is None:
+            self.gaussian_process_ = GaussianProcessRegressor(kernel = kernel, alpha = 1e-4, n_restarts_optimizer = 20)
+        else:
+            self.gaussian_process_ = GaussianProcessRegressor(kernel = kernel, alpha = dy, n_restarts_optimizer = 20)
         #transform and fit
         X = self.standard_scaler_.fit_transform(X)
         y = array(y)

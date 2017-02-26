@@ -7,7 +7,8 @@ from numpy import array
 from random import random
 from numpy import exp, pi, sqrt
 from scipy.special import erf
-from random import uniform
+#from random import uniform
+from halton import Halton
 
 class BayesianOptimizer:
     #if a previous bayesian optimzer was made it can be loaded
@@ -16,15 +17,15 @@ class BayesianOptimizer:
         return None  
     
     #establish the regressor        
-    def InitalizeRegressor(self, nu = 1.5):
-        self.gaussian_process_regressor_ = GaussianProcessRegressor_(nu = nu)
+    def InitalizeRegressor(self, nu = 1.5, white_noise=True):
+        self.gaussian_process_regressor_ = GaussianProcessRegressor_(nu=nu, white_noise=white_noise)
         return None   
     
     #set the various simulated annealing parameters    
     def InitializeOptimizer(self, rand_starts=100, tol=1e-10):
         self.rand_starts_ = rand_starts
         self.tol_ = tol
-        None
+        return None
     
     #set the various suggestion related parameters
     def InitializeSuggestionEngine(self, num_suggestions=1, method='ei', rand_starts__max_pred_fitness=200):
@@ -54,6 +55,8 @@ class BayesianOptimizer:
     #this controls the range of valid possible values for each axis
     def SetRanges(self, ranges):
         self.ranges_ = ranges
+        self.halton_opt = Halton(self.ranges_)
+        self.halton_kg = Halton(self.ranges_)
         return None
     
     #adds some virtual samples - this is relevant to multipoint optimization
@@ -74,9 +77,9 @@ class BayesianOptimizer:
         f_mean = f_mean[0]
         f_stdev = f_stdev[0]
         f_max = self.y_max_real_and_virtual_
-        f1 = exp(-((f_max - f_mean)**2.0)/(2.0*f_stdev**2.0))/(2.0*pi)
-        f2 = (f_mean - f_max)/(f_stdev*2.0*sqrt(2.0*pi))
-        f3 = (f_max - f_mean)*erf((f_max - f_mean)/(sqrt(2.0)*f_stdev))/(2.0*sqrt(2.0*pi)*f_stdev)
+        f1 = f_stdev*exp(-((f_max - f_mean)**2.0)/(2.0*f_stdev**2.0))/sqrt(2.0*pi)
+        f2 = (f_mean - f_max)/2.0
+        f3 = (f_max - f_mean)*erf((f_max - f_mean)/(sqrt(2.0)*f_stdev))/2.0
         f = f1 + f2 + f3
         return f    
     
@@ -100,7 +103,8 @@ class BayesianOptimizer:
         #see if there is a better predicted value
         for iteration in range(0, self.rand_starts__max_pred_fitness_):
             #generate random initial guess and search
-            x0 = array([uniform(lower, upper) for lower, upper in self.ranges_])
+            #x0 = array([uniform(lower, upper) for lower, upper in self.ranges_])
+            x0 = array(self.halton_kg.Get())
             result = minimize(self.NegativeExpectedFitness, x0, 
                               method='L-BFGS-B', tol=self.tol_, bounds=self.ranges_, options={'disp': True})
             expected_fitness = self.ExpectedFitness(result.x)
@@ -123,7 +127,8 @@ class BayesianOptimizer:
         ei_x__best = (0.0, None)
         for iteration in range(self.rand_starts_):
             #generate a random initial guess
-            x0 = array([uniform(lower, upper) for lower, upper in self.ranges_])
+            #x0 = array([uniform(lower, upper) for lower, upper in self.ranges_])
+            x0 = array(self.halton_opt.Get())
             #optimize the expected improvement over the valid ranges along each axis
             result = minimize(self.NegativeExpectedImprovement, x0, 
                               method='L-BFGS-B', tol=self.tol_, bounds=self.ranges_, options={'disp': True})
