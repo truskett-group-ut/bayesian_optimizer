@@ -1,13 +1,11 @@
 #this is the protocol for storing the bayesian optimizer object
 from gaussian_process_regressor_ import GaussianProcessRegressor_
 import dill
-#from scipy.optimize import anneal
 from scipy.optimize import minimize
 from numpy import array
 from random import random
 from numpy import exp, pi, sqrt
 from scipy.special import erf
-#from random import uniform
 from halton import Halton
 
 class BayesianOptimizer:
@@ -58,6 +56,11 @@ class BayesianOptimizer:
         self.halton_opt = Halton(self.ranges_)
         self.halton_kg = Halton(self.ranges_)
         return None
+    
+    #simple method for getting suggestions for some initial number of samples
+    def SuggestInitialSamples(self, num_samples):
+        halton = Halton(self.ranges_)
+        return [halton.Get() for i in range(num_samples)]
     
     #adds some virtual samples - this is relevant to multipoint optimization
     def AddVirtualSamples(self, features, fitness):
